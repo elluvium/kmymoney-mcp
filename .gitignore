@@ -1,0 +1,16 @@
+node_modules
+dist
+.env
+.env.local
+.DS_Store
+*.log
+coverage
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+data/*.tmp
+data/*.kmy
+data/*.kmy.bak*
+Thumbs.db
+*.swp
+*.swo
