@@ -72,6 +72,54 @@ describe("Store patch semantics", () => {
     ).rejects.toThrow(/YYYY-MM-DD/);
   });
 
+  it("updateAccount renames account and round-trips through disk", async () => {
+    const accounts = store.listAccounts({});
+    const a = accounts[0];
+    if (!a) throw new Error("fixture has no accounts");
+    await store.mutate(() => store.updateAccount(a.id, { name: "Renamed Account" }));
+    expect(store.getAccount(a.id)!.name).toBe("Renamed Account");
+    await store.reload();
+    expect(store.getAccount(a.id)!.name).toBe("Renamed Account");
+  });
+
+  it("updateAccount({ description: null }) clears description", async () => {
+    const accounts = store.listAccounts({});
+    const a = accounts[0];
+    if (!a) throw new Error("fixture has no accounts");
+    await store.mutate(() => store.updateAccount(a.id, { description: "some desc" }));
+    expect(store.getAccount(a.id)!.description).toBe("some desc");
+    await store.mutate(() => store.updateAccount(a.id, { description: null }));
+    expect(store.getAccount(a.id)!.description).toBeUndefined();
+  });
+
+  it("updateAccount with absent fields leaves them untouched", async () => {
+    const accounts = store.listAccounts({});
+    const a = accounts[0];
+    if (!a) throw new Error("fixture has no accounts");
+    await store.mutate(() =>
+      store.updateAccount(a.id, { number: "ACC-001", description: "keep me" }),
+    );
+    await store.mutate(() => store.updateAccount(a.id, { number: "ACC-002" }));
+    const after = store.getAccount(a.id)!;
+    expect(after.number).toBe("ACC-002");
+    expect(after.description).toBe("keep me");
+  });
+
+  it("updateAccount rejects empty name", async () => {
+    const accounts = store.listAccounts({});
+    const a = accounts[0];
+    if (!a) throw new Error("fixture has no accounts");
+    await expect(
+      store.mutate(() => store.updateAccount(a.id, { name: "   " })),
+    ).rejects.toThrow(/name is required/);
+  });
+
+  it("updateAccount throws for unknown id", async () => {
+    await expect(
+      store.mutate(() => store.updateAccount("A999999", { name: "x" })),
+    ).rejects.toThrow(/not found/);
+  });
+
   it("drain() completes without error", async () => {
     await expect(store.drain()).resolves.toBeUndefined();
   });

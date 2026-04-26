@@ -94,4 +94,77 @@ export function registerAccountTools(server: McpServer, store: Store): void {
       return ok({ count: decorated.length, categories: decorated });
     }),
   );
+
+  server.registerTool(
+    "add_account",
+    {
+      title: "Add account",
+      description:
+        "Create a new account under an existing parent. Pass type as a name (e.g. 'Checking', 'Expense') or numeric code. parentAccount accepts an id or name. Set dry_run=true to preview without writing.",
+      inputSchema: {
+        name: z.string().min(1).describe("Account display name"),
+        type: z
+          .union([z.number(), z.string()])
+          .describe("Account type name (e.g. 'Checking', 'Expense') or numeric code"),
+        currency: z.string().min(1).describe("3-letter currency code, e.g. 'USD'"),
+        parentAccount: z.string().describe("Parent account id or name"),
+        number: z.string().optional().describe("Account number"),
+        description: z.string().optional(),
+        institution: z.string().optional().describe("Institution id"),
+        opened: z.string().optional().describe("Opening date YYYY-MM-DD"),
+        dry_run: z.boolean().optional().default(false),
+      },
+      annotations: { destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    },
+    safe(async ({ name, type, currency, parentAccount, number, description, institution, opened, dry_run }) => {
+      const typeNum = resolveTypes([type])![0]!;
+      const parentId = store.resolveAccount(parentAccount);
+      if (dry_run) {
+        return ok({
+          dry_run: true,
+          would_add: { name, type: typeNum, currency, parentAccount: parentId, number, description, institution, opened },
+        });
+      }
+      const account = await store.mutate(() =>
+        store.addAccount({ name, type: typeNum, currency, parentAccount: parentId, number, description, institution, opened }),
+      );
+      return ok({ created: account });
+    }),
+  );
+
+  server.registerTool(
+    "update_account",
+    {
+      title: "Update account",
+      description:
+        "Patch an account's name, number, description, or institution. Only provided fields are changed; pass null to clear an optional field. Set dry_run=true to preview without writing.",
+      inputSchema: {
+        id: z.string().describe("Account id (e.g. A000001)"),
+        name: z.string().optional().describe("New display name"),
+        number: z.string().nullish().describe("Account number; null to clear"),
+        description: z.string().nullish().describe("Description; null to clear"),
+        institution: z.string().nullish().describe("Institution id; null to clear"),
+        dry_run: z.boolean().optional().default(false),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    safe(async ({ id, name, number, description, institution, dry_run }) => {
+      const existing = store.getAccount(id);
+      if (!existing) return ok({ found: false });
+      if (dry_run) {
+        const preview = {
+          ...existing,
+          ...(name !== undefined && { name }),
+          ...(number !== undefined && { number: number ?? undefined }),
+          ...(description !== undefined && { description: description ?? undefined }),
+          ...(institution !== undefined && { institution: institution ?? undefined }),
+        };
+        return ok({ dry_run: true, account: preview });
+      }
+      const updated = await store.mutate(() =>
+        store.updateAccount(id, { name, number, description, institution }),
+      );
+      return ok({ account: updated });
+    }),
+  );
 }
