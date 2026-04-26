@@ -241,6 +241,87 @@ export class Store {
     return null;
   }
 
+  addAccount(input: {
+    name: string;
+    type: number;
+    currency: string;
+    parentAccount: string;
+    number?: string;
+    description?: string;
+    institution?: string;
+    opened?: string;
+  }): Account {
+    if (!input.name?.trim()) throw new Error("account name is required");
+    if (!(input.type in ACCOUNT_TYPE_NAMES)) throw new Error(`unknown account type: ${input.type}`);
+    if (!input.currency?.trim()) throw new Error("currency is required");
+    if (input.opened && !isIsoDate(input.opened)) {
+      throw new Error(`opened must be YYYY-MM-DD: ${input.opened}`);
+    }
+
+    const nodes = this.accountNodes();
+    const parentNode = nodes.find((n) => attr(n, "id") === input.parentAccount);
+    if (!parentNode) throw new Error(`parent account not found: ${input.parentAccount}`);
+
+    const section = ensureSection(this.root, "ACCOUNTS");
+    const gen = makeIdGenerator(
+      "account",
+      nodes.map((n) => attr(n, "id")),
+    );
+    const id = gen();
+
+    const node = makeNode(
+      "ACCOUNT",
+      {
+        id,
+        name: input.name,
+        type: String(input.type),
+        currency: input.currency,
+        parentaccount: input.parentAccount,
+        institution: input.institution ?? "",
+        number: input.number ?? "",
+        opened: input.opened ?? "",
+        description: input.description ?? "",
+        lastreconciled: "",
+        lastmodified: "",
+      },
+      [makeNode("SUBACCOUNTS", {}, [])],
+    );
+    childrenOf(section).push(node);
+    setAttr(section, "count", String(findChildren(section, "ACCOUNT").length));
+
+    let subaccounts = findChild(parentNode, "SUBACCOUNTS");
+    if (!subaccounts) {
+      subaccounts = makeNode("SUBACCOUNTS", {}, []);
+      childrenOf(parentNode).push(subaccounts);
+    }
+    childrenOf(subaccounts).push(makeNode("SUBACCOUNT", { id }, []));
+
+    return this.accountFromNode(node);
+  }
+
+  updateAccount(
+    id: string,
+    patch: {
+      name?: string;
+      number?: string | null;
+      description?: string | null;
+      institution?: string | null;
+    },
+  ): Account {
+    for (const n of this.accountNodes()) {
+      if (attr(n, "id") !== id) continue;
+      if (patch.name !== undefined) {
+        if (!patch.name.trim()) throw new Error("account name is required");
+        setAttr(n, "name", patch.name);
+      }
+      if (patch.number !== undefined) setAttr(n, "number", patch.number ?? "");
+      if (patch.description !== undefined) setAttr(n, "description", patch.description ?? "");
+      if (patch.institution !== undefined) setAttr(n, "institution", patch.institution ?? "");
+      return this.accountFromNode(n);
+    }
+    throw new Error(`account not found: ${id}`);
+  }
+
   /** Return a name → account map and id → account map for O(1) lookup. */
   accountIndex(): { byId: Map<string, Account>; byName: Map<string, Account> } {
     const byId = new Map<string, Account>();
@@ -518,6 +599,7 @@ export class Store {
     commodity?: string;
     limit?: number;
     offset?: number;
+    sortOrder?: "asc" | "desc";
   } = {}): Transaction[] {
     const all = this.transactionNodes().map((n) => this.transactionFromNode(n));
     let out = all;
@@ -540,7 +622,8 @@ export class Store {
           t.splits.some((s) => (s.memo ?? "").toLowerCase().includes(needle)),
       );
     }
-    out.sort((a, b) => (a.postDate < b.postDate ? -1 : a.postDate > b.postDate ? 1 : 0));
+    const dir = filter.sortOrder === "desc" ? -1 : 1;
+    out.sort((a, b) => (a.postDate < b.postDate ? -dir : a.postDate > b.postDate ? dir : 0));
     const offset = filter.offset ?? 0;
     const limit = filter.limit ?? out.length;
     return out.slice(offset, offset + limit);

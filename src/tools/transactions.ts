@@ -55,7 +55,7 @@ export function registerTransactionTools(server: McpServer, store: Store): void 
     {
       title: "List transactions",
       description:
-        "List/filter transactions. All filters are optional and combine with AND. Results are sorted by postDate ascending.",
+        "List/filter transactions. All filters are optional and combine with AND. Results are sorted by postDate ascending by default.",
       inputSchema: {
         dateFrom: DateStr.optional().describe("Inclusive YYYY-MM-DD"),
         dateTo: DateStr.optional().describe("Inclusive YYYY-MM-DD"),
@@ -67,10 +67,11 @@ export function registerTransactionTools(server: McpServer, store: Store): void 
         commodity: z.string().optional(),
         limit: z.number().int().positive().max(5000).optional(),
         offset: z.number().int().min(0).optional(),
+        sortOrder: z.enum(["asc", "desc"]).optional().describe("Sort by postDate, default asc"),
       },
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     },
-    safe(async ({ dateFrom, dateTo, account, payee, tag, category, memoContains, commodity, limit, offset }) => {
+    safe(async ({ dateFrom, dateTo, account, payee, tag, category, memoContains, commodity, limit, offset, sortOrder }) => {
       const accountId = account ? store.resolveAccount(account) : undefined;
       const categoryId = category ? store.resolveAccount(category) : undefined;
       const txns = store.listTransactions({
@@ -84,6 +85,7 @@ export function registerTransactionTools(server: McpServer, store: Store): void 
         commodity,
         limit,
         offset,
+        sortOrder,
       });
       return ok({
         count: txns.length,
