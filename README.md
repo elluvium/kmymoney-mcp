@@ -1,4 +1,4 @@
-# kmymoney-mcp — KMyMoney MCP Server
+# KMyMoney MCP Server
 
 A Model Context Protocol server that exposes a [KMyMoney](https://kmymoney.org/) data file (`.kmy`, gzipped XML) to MCP clients such as Claude Code or Claude Desktop.
 
