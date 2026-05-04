@@ -15,3 +15,5 @@ data/*.kmy.*
 Thumbs.db
 *.swp
 *.swo
+.claude
+.codemie
