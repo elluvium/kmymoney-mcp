@@ -19,7 +19,7 @@
     "url": "git+https://github.com/elluvium/kmymoney-mcp.git"
   },
   "bin": {
-    "kmymoney-mcp": "./dist/index.js"
+    "kmymoney-mcp": "dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [
