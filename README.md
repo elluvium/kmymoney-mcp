@@ -1,42 +1,39 @@
 # KMyMoney MCP Server
 
-A Model Context Protocol server that exposes a [KMyMoney](https://kmymoney.org/) data file (`.kmy`, gzipped XML) to MCP clients such as Claude Code or Claude Desktop.
-
-## Features
-
-- Read tools: accounts, categories, transactions, payees, tags, institutions, budgets, currencies, securities, prices.
-- Analytics: balances, net worth, spending by category, income by source, monthly cash flow.
-- Write tools with validation: add / update / delete transactions, payees, tags, accounts, budgets — all with optional `dry_run`.
-- Safe saves: atomic rename + rolling `.1~ … .10~` backups (matches KMyMoney's own convention).
-- Exact rational arithmetic (no floating-point drift for money).
-- Transport: stdio.
+MCP server for [KMyMoney](https://kmymoney.org/) `.kmy` files. It runs over stdio and lets MCP clients query and mutate a gzipped XML KMyMoney file.
 
 ## Requirements
 
-- Node.js ≥ 20.
-- A KMyMoney `.kmy` file (gzipped XML format).
+- Node.js 20 or newer.
+- A KMyMoney `.kmy` file.
+- Close KMyMoney before using write tools; KMyMoney does not coordinate with this server's lock file.
 
-## Install & build
+## Install
 
 ```bash
-npm install
-npm run build
+npm install -g kmymoney-mcp
+```
+
+Or run without installing globally:
+
+```bash
+npx -y kmymoney-mcp
 ```
 
 ## Configure
 
-Set `KMYMONEY_FILE` in your environment (or a `.env` file — see `.env.example`). Optionally set `KMY_AUTOSAVE` to one of `false`, `0`, `no`, or `off` to disable auto-save after each mutation and require an explicit `kmy_save` call. Any other value (including unset) leaves auto-save enabled.
+The server requires `KMYMONEY_FILE`.
 
-## Use with Claude Code / Claude Desktop
+`KMY_AUTOSAVE` is optional and defaults to enabled. Set it to `false`, `0`, `no`, or `off` to keep changes in memory until `kmy_save` is called. Set it to `true`, `1`, `yes`, or `on` to enable autosave explicitly.
 
-Add an entry to your MCP client config (e.g. `~/.claude.json` or `.mcp.json` in the project):
+Example MCP config:
 
 ```json
 {
   "mcpServers": {
     "kmymoney": {
-      "command": "node",
-      "args": ["/absolute/path/to/kmymoney-mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "kmymoney-mcp"],
       "env": {
         "KMYMONEY_FILE": "/absolute/path/to/your.kmy"
       }
@@ -45,34 +42,54 @@ Add an entry to your MCP client config (e.g. `~/.claude.json` or `.mcp.json` in 
 }
 ```
 
-For development you can point at `tsx` instead:
+For a local checkout:
+
+```bash
+npm install
+npm run build
+```
 
 ```json
 {
-  "command": "npx",
-  "args": ["tsx", "/absolute/path/to/kmymoney-mcp/src/index.ts"],
-  "env": { "KMYMONEY_FILE": "..." }
+  "command": "node",
+  "args": ["/absolute/path/to/kmymoney-mcp/dist/index.js"],
+  "env": {
+    "KMYMONEY_FILE": "/absolute/path/to/your.kmy"
+  }
 }
 ```
 
+## Tools
+
+Read tools:
+
+- File metadata and save/reload controls.
+- Accounts, categories, transactions, payees, tags, institutions.
+- Currencies, securities, prices, budgets.
+- Account balances, net worth, spending/income by category, monthly cash flow.
+
+Write tools:
+
+- Add/update accounts.
+- Add/update/delete transactions.
+- Add/update/delete payees.
+- Add/delete tags.
+
+All mutation tools support `dry_run: true`.
+
 ## Safety
 
-Writes are atomic:
+Writes use a sibling `.lock` file, a temporary file, atomic rename, and rolling backups named `.1~` through `.10~`. With autosave enabled, each successful mutation is saved immediately. With autosave disabled, call `kmy_save` to persist pending changes or `kmy_reload` to discard them and reload from disk.
 
-1. A `.lock` file is created with `O_EXCL` (stale locks > 60 s are reclaimed) so two `kmymoney-mcp` processes can't clobber each other's rotation.
-2. The new document is written to a sibling `.tmp` file.
-3. Existing backups rotate (`.9~ → .10~`, …, `.1~ → .2~`; the old `.10~` is discarded).
-4. The live file is hard-linked to `.1~`, so the original inode is preserved under two names.
-5. The `.tmp` file is renamed onto the live path atomically — the old inode stays reachable via `.1~`.
+## Development
 
-If any step after the temp write fails, the temp is removed and the tool attempts to restore the live file from `.1~`. Backups already rotated in step 3 are not unrotated. Close KMyMoney before mutating — it does not coordinate on `.lock` files.
-
-## Scripts
-
-- `npm run dev` — run via tsx without building.
-- `npm test` — vitest suite (round-trip parse/serialize against `data/bgt.kmy`, backup rotation, money arithmetic, tool handlers).
-- `npm run typecheck` — `tsc --noEmit`.
+```bash
+npm run typecheck
+npm test
+npm run build
+node tests/smoke.mjs
+```
 
 ## License
 
-MIT.
+MIT

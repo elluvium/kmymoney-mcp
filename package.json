@@ -3,6 +3,21 @@
   "version": "0.1.0",
   "description": "MCP server for KMyMoney personal-finance files (.kmy)",
   "type": "module",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "kmymoney",
+    "personal-finance",
+    "finance"
+  ],
+  "homepage": "https://github.com/elluvium/kmymoney-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/elluvium/kmymoney-mcp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elluvium/kmymoney-mcp.git"
+  },
   "bin": {
     "kmymoney-mcp": "./dist/index.js"
   },
@@ -17,7 +32,11 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
