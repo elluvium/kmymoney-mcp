@@ -8,25 +8,46 @@ MCP server for [KMyMoney](https://kmymoney.org/) `.kmy` files. It runs over stdi
 - A KMyMoney `.kmy` file.
 - Close KMyMoney before using write tools; KMyMoney does not coordinate with this server's lock file.
 
-## Install
-
-```bash
-npm install -g kmymoney-mcp
-```
-
-Or run without installing globally:
-
-```bash
-npx -y kmymoney-mcp
-```
-
 ## Configure
 
 The server requires `KMYMONEY_FILE`.
 
 `KMY_AUTOSAVE` is optional and defaults to enabled. Set it to `false`, `0`, `no`, or `off` to keep changes in memory until `kmy_save` is called. Set it to `true`, `1`, `yes`, or `on` to enable autosave explicitly.
 
-Example MCP config:
+### Codex
+
+```bash
+codex mcp add kmymoney \
+  --env KMYMONEY_FILE=/absolute/path/to/your.kmy \
+  -- npx -y kmymoney-mcp
+```
+
+Verify it:
+
+```bash
+codex mcp list
+```
+
+### Claude Code
+
+```bash
+claude mcp add --transport stdio kmymoney \
+  --scope user \
+  --env KMYMONEY_FILE=/absolute/path/to/your.kmy \
+  -- npx -y kmymoney-mcp
+```
+
+Verify it:
+
+```bash
+claude mcp list
+```
+
+Use `--scope local` instead of `--scope user` to configure only the current project. Use `--scope project` if you want Claude Code to write a shared `.mcp.json`.
+
+### Manual MCP config
+
+For clients that read `.mcp.json`:
 
 ```json
 {
